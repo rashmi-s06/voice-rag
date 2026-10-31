@@ -116,4 +116,4 @@ with gr.Blocks(title="Voice-Enabled RAG System (MS MARCO)", css=custom_css) as d
     )
 
 if __name__ == "__main__":
-    demo.launch(server_name="127.0.0.1", server_port=7860, share=False)
+    demo.launch(server_name="0.0.0.0", server_port=7860)
