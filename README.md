@@ -1,60 +1,54 @@
-# Voice-Enabled RAG System (MS MARCO Grounded)
+---
+title: Voice-Enabled RAG System
+colorFrom: pink
+colorTo: green
+sdk: gradio
+sdk_version: 5.20.0
+app_file: app.py
+pinned: false
+---
 
-An end-to-end, ultra-low latency, voice-enabled Retrieval-Augmented Generation (RAG) system built to the specifications of the Open Trials technical brief.
+# Voice-Enabled RAG System
+
+- **Live GitHub Pages App**: [https://saniya-cps.github.io/voice-rag/](https://saniya-cps.github.io/voice-rag/)
+- **Repository**: [https://github.com/saniya-cps/voice-rag](https://github.com/saniya-cps/voice-rag)
+
+An end-to-end, ultra-low latency **Voice-Enabled Retrieval-Augmented Generation (RAG) System** in Python. Users curate their own personal source database (`.pdf`, `.tsv`, `.csv`, `.txt`, `.md`, or custom research notes) and interact via spoken voice or text in English and Hindi.
 
 ## System Architecture & Technical Pillars
 
 1. **Voice-to-Voice Pipeline**:
    - **Speech-to-Text (STT)**: High-speed transcription using `faster-whisper` with automatic language detection.
    - **Text-to-Speech (TTS)**: Natural neural speech synthesis using Microsoft `edge-tts` with language-adaptive voices (`en-US-JennyNeural` for English, `hi-IN-SwaraNeural` for Hindi).
-2. **Strict MS MARCO Grounding**:
-   - Queries and retrieves from the MS MARCO passage dataset with verifiable `[Passage ID: <id>]` citations for every single factual claim.
-3. **Zero Hallucination Guardrails**:
-   - Built-in relevance confidence gate (`SIMILARITY_THRESHOLD = 0.36`). Out-of-domain queries trigger an immediate refusal without speculative fabrication:
-     > *"The provided MS MARCO dataset does not contain sufficient information to answer this question."*
-4. **Sub-200ms Latency Target**:
-   - In-memory **FAISS** vector search (<5ms) fused with **BM25Okapi** keyword search via Reciprocal Rank Fusion (RRF).
+2. **Personal Source Knowledge Base**:
+   - Upload multiple documents (`.pdf`, `.tsv`, `.csv`, `.txt`, `.md`) or paste custom notes.
+   - Automatic paragraph and sentence chunking with verifiable `[Source: <filename>, Chunk #<id>]` citations for every factual claim.
+3. **Zero-Hallucination Guardrails**:
+   - Dual semantic and keyword relevance gate. Empty notebooks or out-of-domain queries trigger an immediate refusal without speculative fabrication:
+     > *"The uploaded notebook sources do not contain sufficient information to answer this question. Please upload relevant source documents to ground the answer."*
+4. **Sub-200ms Retrieval Latency**:
+   - In-memory **FAISS** vector search fused with **BM25Okapi** keyword search via Reciprocal Rank Fusion (RRF).
    - Real-time latency telemetry measuring STT, retrieval, LLM Time-to-First-Token (TTFT), and total end-to-end execution.
 5. **Multilingual Capabilities (English & Hindi)**:
-   - Uses `paraphrase-multilingual-MiniLM-L12-v2` dense embeddings, allowing cross-lingual queries (e.g. asking in Hindi and retrieving relevant English MS MARCO passages with Hindi grounded answers).
-6. **Executive Web Interface**:
-   - Clean, professional design with zero emojis.
-   - Dynamic **Dark Theme** (Pink & Black) and **Light Theme** (Black-Green-White).
-   - Fully responsive for mobile devices, tablets, and desktop displays.
+   - Uses `paraphrase-multilingual-MiniLM-L12-v2` dense embeddings, enabling cross-lingual queries (e.g., asking in Hindi and retrieving relevant passages from English documents).
+6. **Responsive Dual-Theme Web Interface**:
+   - Clean, professional design with zero emojis, celebratory confetti bursts, mobile haptics, and toast notifications.
+   - Dynamic **Dark Mode** (Pookie Pink & Obsidian Black) and **Light Mode** (Matcha Green, Crisp White, and Slate).
 
 ---
 
-## Quickstart
+## Quickstart (Local)
 
-### 1. Prerequisites & Environment
-The project is managed with `uv` and Python 3.12:
-
-```powershell
-# Activate virtual environment (Windows PowerShell)
-.\.venv\Scripts\activate
-```
-
-### 2. Configure API Key
-Set your Gemini API key in `.env`:
-```env
-GEMINI_API_KEY="your-gemini-pro-api-key"
-```
-*(Or paste the API key directly into the Web UI sidebar).*
-
-### 3. Launch Interactive Web App
-- **One-Click**: Double-click `run.bat` in the project folder.
-- **Or via Terminal**:
+### 1. Launch Interactive Web App
+- **One-Click (Windows)**: Double-click `run.bat` in the project folder.
+- **Via PowerShell**:
   ```powershell
-  python app.py
+  .\.venv\Scripts\python.exe app.py
   ```
 Open `http://127.0.0.1:7860` in your browser.
 
-### 4. Run Automated Tests
+### 2. Run Automated Tests & Benchmarks
 ```powershell
-python -m unittest test_pipeline.py
-```
-
-### 5. Run the Benchmark Suite
-```powershell
-python benchmark.py
+.\.venv\Scripts\python.exe test_pipeline.py
+.\.venv\Scripts\python.exe benchmark.py
 ```

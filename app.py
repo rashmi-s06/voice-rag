@@ -1083,20 +1083,103 @@ with gr.Blocks(title="Voice-Enabled RAG System") as demo:
         outputs=[output_answer, output_audio, output_telemetry, output_passages]
     )
 
+def attach_github_pages_bridge(fastapi_app):
+    """Attaches CORS-enabled local machine REST endpoints so the static GitHub Pages site
+    (https://<username>.github.io/<repo>/) can execute queries on this local Python machine.
+    """
+    import base64
+    from fastapi import Request
+    from fastapi.responses import JSONResponse
+
+    CORS_HEADERS = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "*",
+        "Access-Control-Allow-Private-Network": "true",
+    }
+
+    @fastapi_app.options("/api/{rest_of_path:path}")
+    async def preflight_handler(rest_of_path: str):
+        return JSONResponse(content={"ok": True}, headers=CORS_HEADERS)
+
+    @fastapi_app.get("/api/status")
+    async def api_status():
+        sources = []
+        for s in pipeline.source_manager.sources.values():
+            sources.append({
+                "source_id": s.source_id,
+                "name": s.name,
+                "file_type": s.file_type,
+                "num_chunks": s.num_chunks,
+                "passages": [p.to_dict() for p in s.passages],
+            })
+        return JSONResponse(content={"online": True, "sources": sources}, headers=CORS_HEADERS)
+
+    @fastapi_app.post("/api/starter")
+    async def api_starter():
+        src, total = pipeline.load_starter_pack()
+        return JSONResponse(content={"ok": True, "total": total}, headers=CORS_HEADERS)
+
+    @fastapi_app.post("/api/clear")
+    async def api_clear():
+        pipeline.clear_all_sources()
+        return JSONResponse(content={"ok": True}, headers=CORS_HEADERS)
+
+    @fastapi_app.post("/api/add_note")
+    async def api_add_note(req: Request):
+        body = await req.json()
+        title = body.get("title", "Uploaded_Source.txt")
+        text = body.get("text", "")
+        if text.strip():
+            pipeline.add_source_text(text, title=title)
+        return JSONResponse(content={"ok": True}, headers=CORS_HEADERS)
+
+    @fastapi_app.post("/api/query")
+    async def api_query(req: Request):
+        body = await req.json()
+        query = body.get("query", "")
+        api_key = body.get("api_key", "")
+        synthesize_voice = body.get("synthesize_voice", True)
+
+        answer, audio_out, telemetry_md, passages_md = process_interaction(
+            None, query, api_key, synthesize_voice
+        )
+        audio_b64 = None
+        if audio_out and Path(audio_out).exists():
+            audio_b64 = base64.b64encode(Path(audio_out).read_bytes()).decode("ascii")
+
+        return JSONResponse(
+            content={
+                "answer": answer,
+                "audio_base64": audio_b64,
+                "telemetry_html": f"<pre style='white-space:pre-wrap;font-family:inherit;'>{html.escape(telemetry_md)}</pre>",
+                "passages_html": f"<pre style='white-space:pre-wrap;font-family:inherit;'>{html.escape(passages_md)}</pre>",
+            },
+            headers=CORS_HEADERS,
+        )
+
+
 if __name__ == "__main__":
     print("==================================================")
     print("Starting Voice-Enabled RAG System Web Interface...")
     print("==================================================")
+    is_hf_space = bool(os.getenv("SPACE_ID"))
+    server_host = os.getenv("GRADIO_SERVER_NAME", "0.0.0.0" if is_hf_space else "127.0.0.1")
+    server_port = int(os.getenv("PORT", os.getenv("GRADIO_SERVER_PORT", 7860)))
     launch_kwargs = {
-        "server_name": "127.0.0.1",
-        "inbrowser": True,
-        "share": False,
+        "server_name": server_host,
+        "inbrowser": (not is_hf_space and server_host == "127.0.0.1"),
+        "share": os.getenv("GRADIO_SHARE", "false").lower() == "true",
         "css": CUSTOM_CSS,
         "js": CLIENT_JS,
         "head": HEAD_TAGS,
+        "prevent_thread_lock": True,
     }
     try:
-        demo.launch(server_port=7860, **launch_kwargs)
+        fastapi_app, local_url, share_url = demo.launch(server_port=server_port, **launch_kwargs)
     except OSError:
-        print("[Notice] Port 7860 is occupied. Launching on next available free port...")
-        demo.launch(**launch_kwargs)
+        print(f"[Notice] Port {server_port} is occupied. Launching on next available free port...")
+        fastapi_app, local_url, share_url = demo.launch(**launch_kwargs)
+
+    attach_github_pages_bridge(fastapi_app)
+    demo.block_thread()
